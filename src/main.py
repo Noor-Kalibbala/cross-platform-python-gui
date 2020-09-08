@@ -3,29 +3,30 @@
 import platform, os
 if platform.system() == 'Windows':
     os.environ['KIVY_GL_BACKEND'] = 'angle_sdl2'
-
+import win32timezone
 import json
 import mimetypes
 import os
 import random
-import win32timezone
-from random import randint
-from kivy.core.window import Window
+from kivy.uix.image import AsyncImage
 from kivy.lang import Builder
 from kivy.uix.floatlayout import FloatLayout
 from kivymd.app import MDApp
 from kivymd.uix.menu import MDDropdownMenu
+from kivymd.theming import ThemableBehavior
+from kivymd.uix.behaviors import RectangularElevationBehavior
+from kivymd.uix.boxlayout import MDBoxLayout
 from kivy.uix.modalview import ModalView
 from kivymd.uix.snackbar import Snackbar
-from kivy.uix.scatter import Scatter
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.properties import ListProperty, ConfigParserProperty, StringProperty, ObjectProperty, NumericProperty
 from kivy.config import ConfigParser
-from os.path import isdir, exists, join
+from os.path import isdir, exists, join, expanduser
 from os import listdir
 from distutils import dir_util
 from shutil import copy2
-
+from kivy.tools.packaging.pyinstaller_hooks import get_deps_minimal, get_deps_all, hookspath, runtime_hooks
+home_directory = expanduser("~").replace("\\", "/")
 config = ConfigParser()
 config.read("labelbox.ini")
 
@@ -37,6 +38,7 @@ Builder.load_string("""
         FileChooserIconView:
             id: customfilechooser
             dirselect: True
+            rootpath: {}
         AnchorLayout:
             anchor_x: 'right'
             anchor_y: 'bottom'
@@ -52,7 +54,7 @@ Builder.load_string("""
                 elevation: dp(8)
                 on_release: root.callback(args[0])
                 md_bg_color: get_color_from_hex(colors["Blue"]["500"])
-""")
+""".format(repr(home_directory)))
 
 
 class FileManager(ModalView):
@@ -64,77 +66,60 @@ class FileManager(ModalView):
 
 
 Builder.load_string('''
-#:kivy 1.0
-#:import kivy kivy
-#:import win kivy.core.window
 #:import colors kivymd.color_definitions.colors
 #:import get_color_from_hex kivy.utils.get_color_from_hex
+<CustomToolbar>:
+    padding: "5dp"
+    spacing: "12dp"
+    MDIconButton:
+        id: button_1
+        icon: "gra.png"
+        pos_hint: {"center_y": .5}
+        #theme_text_color: "Primary"
+        user_font_size: "18sp"
 
-<Picture>:
-    # each time a picture is created, the image can delay the loading
-    # as soon as the image is loaded, ensure that the center is changed
-    # to the center of the screen.
-    #on_size: self.center = win.Window.center
-    size: image.size
-    size_hint: None, None
-    Image:
-        id: image
-        source: root.source
-
-        # create initial image to be 400 pixels width
-        size: 300, 300 / self.image_ratio
-        # add shadow background
-        canvas.before:
-            Color:
-                rgba: 1,1,1,1
-            BorderImage:
-                source: 'shadow32.png'
-                border: (36,36,36,36)
-                size:(self.width+72, self.height+72)
-                pos: (-36,-36)
+    MDLabel:
+        text: "Box Label"
+        pos_hint: {"center_y": .5}
+        size_hint_x: None
+        width: self.texture_size[0]
+        text_size: None, None
+        font_style: 'H6'
+        theme_text_color: "Primary"
+        
+    Widget:
+    
+    MDIconButton:
+        id: button_2
+        icon: "dots-vertical"
+        pos_hint: {"center_y": .5}
+        on_release: root.parent.menu.open()
 
 
 <MainPage>:
     name: "mainScreen"
-    canvas:
-        Color:
-            rgb: 1, 1, 1
-        Rectangle:
-            source: 'background.jpg'
-            size: self.size
-
-    BoxLayout:
-        padding: 10
-        spacing: 10
-        size_hint: 1, None
-        pos_hint: {'top': 1}
-        height: 44
-        Image:
-            size_hint: None, None
-            size: 24, 24
-            source: 'gra.png'
-        Label:
-            height: 24
-            text_size: self.width, None
-            color: (1, 1, 1, .8)
-            text: 'Label Box 1.0.0' 
-        Widget:
-    
-        MDIconButton:
-            id: button_2
-            icon: "dots-vertical"
-            pos_hint: {"center_y": .5}
-            on_release: root.menu.open()
-
+    CustomToolbar:
+        id: toolbar
+        elevation: 10
+        pos_hint: {"top": 1}
+        size_hint_y: .08
+    GridLayout:
+	    id: gridlayout
+		cols: 4
+		rows: 1
+		pos_hint:{"top": .9}
+		spacing: dp(10)
+		padding: dp(10)
+		
     MDFloatingActionButtonSpeedDial:
         id: speeddial
-        data: {"plus": "Positive", "minus": "Negative"}
+        data: {"plus": "Positive", "minus": "Negative", "alert-circle-outline": "Suspicious"}
         rotation_root_button: False
         callback: root.callback
         hint_animation: True
         #bg_hint_color: app.theme_cls.primary_light
-
-
+        
+    
     BoxLayout:
         pos_hint: {"center_x": .42, "y": 0}
         height: dp(56)
@@ -162,7 +147,7 @@ Builder.load_string('''
             icon: "skip-forward-outline"
             pos_hint: {"center_y": .5}
             on_release: root.forward()
-
+            
 <AddSamples>:
     current_selected_directory: open_folder.secondary_text
     current_destination_directory: destnation_folder.secondary_text
@@ -193,20 +178,8 @@ Builder.load_string('''
                 secondary_text: root.current_destination_directory
                 IconLeftWidget:
                     icon: "folder-outline"
-
+                                    		
 ''')
-
-
-class Picture(Scatter):
-    '''Picture is the class that will show the image with a white border and a
-    shadow. They are nothing here because almost everything is inside the
-    picture.kv. Check the rule named <Picture> inside the file, and you'll see
-    how the Picture() is really constructed and used.
-
-    The source property will be the filename to show.
-    '''
-
-    source = StringProperty(None)
 
 
 class MainPage(Screen):
@@ -220,23 +193,22 @@ class MainPage(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.directory_names = []
-        menu_items = [{"text": i} for i in ["Add Samples"]]
-        self.menu = MDDropdownMenu(caller=self.ids.button_2, items=menu_items, width_mult=5,
-                                   position="bottom", use_icon_item=False, callback=self.Add_file,
+        menu_items = [{"text": i} for i in ["Add Samples", "Light theme", "Dark theme"]]
+        self.menu = MDDropdownMenu(caller=self.ids.toolbar.ids.button_2, items=menu_items, width_mult=5,
+                                   position="bottom", callback=self.Add_file,
                                    background_color=MDApp.get_running_app().theme_cls.bg_normal)
 
     def callback(self, instance):
         self.ids.speeddial.close_stack()
         print(instance.icon)
-        mapping = {"plus": "Positive", "minus": "Negative"}
+        mapping = {"plus": "Positive", "minus": "Negative", "alert-circle-outline": "Suspicious"}
         destination_folder = config.get("Destination Directory", "path")
         if destination_folder:
             dir_util.mkpath(join(destination_folder, mapping[instance.icon]))
-            for widget in list(self.children):
-                if isinstance(widget, Picture):
-                    print(widget.source, destination_folder)
-                    copy2(widget.source, join(destination_folder, mapping[instance.icon]))
-            self.clear_pictures()
+            for widget in list(self.ids.gridlayout.children):
+                print(widget.source, destination_folder)
+                copy2(widget.source, join(destination_folder, mapping[instance.icon]))
+            self.ids.gridlayout.clear_widgets()
             self.forward()
         else:
             Snackbar(text="Please set destination directory...").show()
@@ -246,14 +218,14 @@ class MainPage(Screen):
             transition = sm.transition
             transition.direction = "left"
             sm.current = "Add_samples"
-        # else:
-        #     if instance.text == "Dark theme":
-        #         config.set("Theme Style", "theme", "Dark")
-        #     else:
-        #         config.set("Theme Style", "theme", "Light")
-        #     config.update()
-        #     config.write()
-        #     Snackbar(text="Restart the BoxLabel that change to take effect").show()
+        else:
+            if instance.text == "Dark theme":
+                config.set("Theme Style", "theme", "Dark")
+            else:
+                config.set("Theme Style", "theme", "Light")
+            config.update()
+            config.write()
+            Snackbar(text="Restart the BoxLabel that change to take effect").show()
 
     def forward(self):
         self.previous_position = self.position
@@ -261,21 +233,23 @@ class MainPage(Screen):
             config.set("Progress", "position", self.position + 1)
             config.write()
 
+
     def backward(self):
         self.previous_position = self.position
         if self.position > 0:
             config.set("Progress", "position", self.position - 1)
             config.write()
 
+
     def on_position(self, instance, value):
         print(self.previous_position, value)
         self.ids.buttom_label.text = f"{value}/{self.length - 1 if self.length > 0 else self.length}"
         if self.previous_position is not None:
             if value > self.previous_position:
-                self.clear_pictures()
+                self.ids.gridlayout.clear_widgets()
                 self.add_images()
             elif value < self.previous_position:
-                self.clear_pictures()
+                self.ids.gridlayout.clear_widgets()
                 self.add_images()
 
     def on_json_file(self, instance, value):
@@ -295,16 +269,16 @@ class MainPage(Screen):
                 else:
                     main, sub = mime_type.split("/")
                     if main == "image":
-                        image_widget = Picture(source=join(self.directory_names[self.position], image_file),
-                                               rotation=randint(-30, 30), x=Window.width/2 - 300/2, y=100)
+                        image_widget = AsyncImage(source=join(self.directory_names[self.position], image_file))
+                        self.ids.gridlayout.add_widget(image_widget)
 
-                        self.add_widget(image_widget)
 
-    def clear_pictures(self):
-        for widget in list(self.children):
-            if isinstance(widget, Picture):
-                self.remove_widget(widget)
-
+class CustomToolbar(
+    ThemableBehavior, RectangularElevationBehavior, MDBoxLayout,
+):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.md_bg_color = self.theme_cls.bg_light if MDApp.get_running_app().theme_cls.theme_style == "Dark" else self.theme_cls.primary_color
 
 
 class AddSamples(FloatLayout):
@@ -337,7 +311,7 @@ class AddSamples(FloatLayout):
             if self.item_pressed.text == "Upload Directory":
                 self.ids.open_folder.secondary_text = self._current_selected_directory_
                 print(self.current_selected_directory)
-                # self.ids.destnation_folder.secondary_text = self._current_selected_directory_ if self.ids.destnation_folder.secondary_text == "" else self.ids.destnation_folder.secondary_text
+                #self.ids.destnation_folder.secondary_text = self._current_selected_directory_ if self.ids.destnation_folder.secondary_text == "" else self.ids.destnation_folder.secondary_text
                 config.set("Progress", "position", 0)
                 config.write()
 
@@ -377,13 +351,19 @@ config.write()
 
 
 class Test(MDApp):
-    icon = "gra.png"
-    title = "Label box"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.theme_cls.theme_style = "Dark"
+        self.theme_cls.theme_style = config.get("Theme Style", "theme")
 
-
+    def on_config_change(self, config_, section, key, value):
+        if config_ is self.config:
+            query = (section, key)
+            if query == ("Theme Style", "theme"):
+                self.theme_cls.theme_style = value
+            elif query == ("Project Directory", "path"):
+                pass
+                # self.filenames = [directory for directory in listdir(value) if isdir(directory)]
 
     def build(self):
         main_page = MainPage()
