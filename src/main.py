@@ -4,7 +4,7 @@ import platform, os
 if platform.system() == 'Windows':
     os.environ['KIVY_GL_BACKEND'] = 'angle_sdl2'
 import win32timezone
-import json
+mport json
 import mimetypes
 import os
 import random
@@ -21,10 +21,10 @@ from kivymd.uix.snackbar import Snackbar
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.properties import ListProperty, ConfigParserProperty, StringProperty, ObjectProperty, NumericProperty
 from kivy.config import ConfigParser
-from os.path import isdir, exists, join, expanduser
+from os.path import isdir, exists, join, basename, split
 from os import listdir
 from distutils import dir_util
-from shutil import copy2
+from kivy.storage.jsonstore import JsonStore
 
 config = ConfigParser()
 config.read("labelbox.ini")
@@ -114,7 +114,7 @@ Builder.load_string('''
         data: {"plus": "Positive", "minus": "Negative", "alert-circle-outline": "Suspicious"}
         rotation_root_button: False
         callback: root.callback
-        hint_animation: True
+        #hint_animation: True
         #bg_hint_color: app.theme_cls.primary_light
         
     
@@ -187,13 +187,12 @@ class MainPage(Screen):
                                      config=None)
     length = NumericProperty(0)
     previous_position = None
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.directory_names = []
         menu_items = [{"text": i} for i in ["Add Samples", "Light theme", "Dark theme"]]
         self.menu = MDDropdownMenu(caller=self.ids.toolbar.ids.button_2, items=menu_items, width_mult=5,
-                                   position="bottom", callback=self.Add_file,
+                                   position="bottom", use_icon_item=False, callback=self.Add_file,
                                    background_color=MDApp.get_running_app().theme_cls.bg_normal)
 
     def callback(self, instance):
@@ -201,11 +200,20 @@ class MainPage(Screen):
         print(instance.icon)
         mapping = {"plus": "Positive", "minus": "Negative", "alert-circle-outline": "Suspicious"}
         destination_folder = config.get("Destination Directory", "path")
-        if destination_folder:
+        parent_directory = config.get("Project Directory", "path", fallback="")
+        if destination_folder and exists(parent_directory):
+            store = JsonStore(join(parent_directory, "labels.json"))
             dir_util.mkpath(join(destination_folder, mapping[instance.icon]))
             for widget in list(self.ids.gridlayout.children):
                 print(widget.source, destination_folder)
-                copy2(widget.source, join(destination_folder, mapping[instance.icon]))
+                basefolder = basename(split(widget.source)[0])
+                if not store.exists(basename(parent_directory)):
+                    store.put(basename(parent_directory), Labels={})
+                labels = store.get(basename(parent_directory))["Labels"]
+                labels[basefolder] = mapping[instance.icon]
+                store.put(basename(parent_directory), Labels=labels)
+                break
+                # copy2(widget.source, join(destination_folder, mapping[instance.icon]))
             self.ids.gridlayout.clear_widgets()
             self.forward()
         else:
@@ -378,6 +386,3 @@ class Test(MDApp):
 
 if __name__ == '__main__':
     Test().run()
-
-
-
