@@ -26,7 +26,6 @@ from os import listdir
 from distutils import dir_util
 from shutil import copy2
 from kivy.tools.packaging.pyinstaller_hooks import get_deps_minimal, get_deps_all, hookspath, runtime_hooks
-home_directory = expanduser("~").replace("\\", "/")
 config = ConfigParser()
 config.read("labelbox.ini")
 
@@ -38,7 +37,6 @@ Builder.load_string("""
         FileChooserIconView:
             id: customfilechooser
             dirselect: True
-            rootpath: {}
         AnchorLayout:
             anchor_x: 'right'
             anchor_y: 'bottom'
@@ -54,7 +52,7 @@ Builder.load_string("""
                 elevation: dp(8)
                 on_release: root.callback(args[0])
                 md_bg_color: get_color_from_hex(colors["Blue"]["500"])
-""".format(repr(home_directory)))
+""")
 
 
 class FileManager(ModalView):
