@@ -25,7 +25,7 @@ from os.path import isdir, exists, join, expanduser
 from os import listdir
 from distutils import dir_util
 from shutil import copy2
-from kivy.tools.packaging.pyinstaller_hooks import get_deps_minimal, get_deps_all, hookspath, runtime_hooks
+
 config = ConfigParser()
 config.read("labelbox.ini")
 
